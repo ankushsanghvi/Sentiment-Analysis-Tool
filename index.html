@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentimentAI - Advanced Text Sentiment Analysis</title>
+    <meta name="description" content="Professional sentiment analysis tool with advanced data processing and visualization capabilities">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">SA</div>
+                <div class="logo-text">SentimentAI</div>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="downloadResults()" id="downloadBtn" style="display: none;">
+                    📊 Export Results
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Input Section -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">📝 Text Input</h2>
+                <p class="card-description">Enter text directly or upload a CSV file for batch analysis</p>
+            </div>
+            <div class="card-content">
+                <!-- Text Input -->
+                <div class="input-group">
+                    <label class="input-label" for="textInput">Single Text Analysis</label>
+                    <textarea
+                        id="textInput"
+                        class="input-field"
+                        placeholder="Enter your text here for sentiment analysis..."
+                        rows="4"
+                    ></textarea>
+                </div>
+
+                <button class="btn btn-primary btn-full" onclick="analyzeSingleText()" id="analyzeBtn">
+                    <span id="analyzeBtnText">🔍 Analyze Sentiment</span>
+                    <div class="loading-spinner hidden" id="analyzeSpinner"></div>
+                </button>
+
+                <div class="input-group mt-4">
+                    <label class="input-label">Batch Analysis (CSV Upload)</label>
+                    <div class="file-upload-area" id="fileUploadArea" onclick="document.getElementById('csvFile').click()">
+                        <div class="upload-icon">📁</div>
+                        <div class="upload-text">
+                            <strong>Click to upload</strong> or drag and drop your CSV file here
+                            <br><small>Supported format: CSV with text column</small>
+                        </div>
+                    </div>
+                    <input type="file" id="csvFile" accept=".csv" style="display: none;" onchange="handleFileUpload(event)">
+                </div>
+
+                <div class="input-group" id="csvOptionsGroup" style="display: none;">
+                    <label class="input-label" for="textColumn">Text Column Name</label>
+                    <input type="text" id="textColumn" class="input-field" placeholder="text" value="text">
+                    <button class="btn btn-success btn-full mt-2" onclick="processCsvFile()" id="processCsvBtn">
+                        <span id="processBtnText">⚡ Process CSV File</span>
+                        <div class="loading-spinner hidden" id="processSpinner"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Processing Options -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">⚙️ Processing Options</h2>
+                <p class="card-description">Configure data cleaning and analysis settings</p>
+            </div>
+            <div class="card-content">
+                <div class="input-group">
+                    <label class="input-label">Data Cleaning Options</label>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: normal;">
+                            <input type="checkbox" id="removeSpecialChars" checked>
+                            Remove special characters and symbols
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: normal;">
+                            <input type="checkbox" id="removeDuplicates" checked>
+                            Remove duplicate entries
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: normal;">
+                            <input type="checkbox" id="normalizeText" checked>
+                            Normalize text (lowercase, trim whitespace)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: normal;">
+                            <input type="checkbox" id="removeEmptyRows" checked>
+                            Remove empty or very short texts
+                        </label>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label" for="analysisMethod">Analysis Method</label>
+                    <select id="analysisMethod" class="input-field">
+                        <option value="textblob">TextBlob (Default)</option>
+                        <option value="vader">VADER Sentiment</option>
+                        <option value="combined">Combined Analysis</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label" for="confidenceThreshold">Confidence Threshold</label>
+                    <input type="range" id="confidenceThreshold" min="0" max="1" step="0.1" value="0.1" class="input-field">
+                    <small class="text-secondary">Current: <span id="thresholdValue">0.1</span></small>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Results Section -->
+    <div class="results-container" id="resultsContainer" style="display: none;">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">📊 Analysis Results</h2>
+                <p class="card-description">Comprehensive sentiment analysis results and statistics</p>
+            </div>
+            <div class="card-content">
+                <!-- Single Text Result -->
+                <div id="singleResult" style="display: none;">
+                    <div id="sentimentDisplay" class="sentiment-result">
+                        <div class="sentiment-icon" id="sentimentIcon">?</div>
+                        <div>
+                            <div id="sentimentText">Analyzing...</div>
+                            <small id="sentimentScore">Score: --</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Batch Results Statistics -->
+                <div id="batchResults" style="display: none;">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalProcessed">0</div>
+                            <div class="stat-label">Total Processed</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="positiveCount">0</div>
+                            <div class="stat-label">Positive</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="negativeCount">0</div>
+                            <div class="stat-label">Negative</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="neutralCount">0</div>
+                            <div class="stat-label">Neutral</div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bars -->
+                    <div class="progress-container">
+                        <div class="progress-label">
+                            <span>Positive</span>
+                            <span id="positivePercent">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill progress-positive" id="positiveBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="progress-container">
+                        <div class="progress-label">
+                            <span>Negative</span>
+                            <span id="negativePercent">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill progress-negative" id="negativeBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="progress-container">
+                        <div class="progress-label">
+                            <span>Neutral</span>
+                            <span id="neutralPercent">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill progress-neutral" id="neutralBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Chart -->
+                    <div class="chart-container">
+                        <canvas id="sentimentChart"></canvas>
+                    </div>
+
+                    <!-- Data Table -->
+                    <div style="max-height: 400px; overflow-y: auto; margin-top: 2rem;">
+                        <table class="data-table" id="resultsTable">
+                            <thead>
+                                <tr>
+                                    <th>Text</th>
+                                    <th>Sentiment</th>
+                                    <th>Score</th>
+                                    <th>Confidence</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerts Container -->
+    <div id="alertsContainer" style="position: fixed; top: 80px; right: 20px; z-index: 1000; max-width: 400px;"></div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2024 SentimentAI. Advanced sentiment analysis powered by machine learning.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Global variables
+        let currentResults = [];
+        let sentimentChart = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Update threshold display
+            const thresholdSlider = document.getElementById('confidenceThreshold');
+            const thresholdValue = document.getElementById('thresholdValue');
+
+            thresholdSlider.addEventListener('input', function() {
+                thresholdValue.textContent = this.value;
+            });
+
+            // File upload drag and drop
+            const fileUploadArea = document.getElementById('fileUploadArea');
+
+            fileUploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('dragover');
+            });
+
+            fileUploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+            });
+
+            fileUploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    document.getElementById('csvFile').files = files;
+                    handleFileUpload({ target: { files: files } });
+                }
+            });
+        });
+
+        // Show alert function
+        function showAlert(message, type = 'info') {
+            const alertsContainer = document.getElementById('alertsContainer');
+            const alertId = 'alert-' + Date.now();
+
+            const alertHtml = `
+                <div id="${alertId}" class="alert alert-${type}" style="margin-bottom: 1rem;">
+                    ${message}
+                    <button onclick="document.getElementById('${alertId}').remove()" style="float: right; background: none; border: none; font-size: 1.2rem; cursor: pointer;">&times;</button>
+                </div>
+            `;
+
+            alertsContainer.insertAdjacentHTML('beforeend', alertHtml);
+
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                const alert = document.getElementById(alertId);
+                if (alert) alert.remove();
+            }, 5000);
+        }
+
+        // Single text analysis
+        async function analyzeSingleText() {
+            const textInput = document.getElementById('textInput');
+            const text = textInput.value.trim();
+
+            if (!text) {
+                showAlert('Please enter some text to analyze.', 'warning');
+                return;
+            }
+
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const analyzeBtnText = document.getElementById('analyzeBtnText');
+            const analyzeSpinner = document.getElementById('analyzeSpinner');
+
+            // Show loading state
+            analyzeBtn.disabled = true;
+            analyzeBtnText.classList.add('hidden');
+            analyzeSpinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: text,
+                        method: document.getElementById('analysisMethod').value,
+                        clean: getCleaningOptions()
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showAlert(data.error, 'error');
+                    return;
+                }
+
+                displaySingleResult(data);
+                showAlert('Analysis completed successfully!', 'success');
+
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('An error occurred during analysis. Please try again.', 'error');
+            } finally {
+                // Reset button state
+                analyzeBtn.disabled = false;
+                analyzeBtnText.classList.remove('hidden');
+                analyzeSpinner.classList.add('hidden');
+            }
+        }
+
+        // Display single result
+        function displaySingleResult(data) {
+            const resultsContainer = document.getElementById('resultsContainer');
+            const singleResult = document.getElementById('singleResult');
+            const batchResults = document.getElementById('batchResults');
+            const sentimentDisplay = document.getElementById('sentimentDisplay');
+            const sentimentIcon = document.getElementById('sentimentIcon');
+            const sentimentText = document.getElementById('sentimentText');
+            const sentimentScore = document.getElementById('sentimentScore');
+
+            // Show results container
+            resultsContainer.style.display = 'block';
+            singleResult.style.display = 'block';
+            batchResults.style.display = 'none';
+
+            // Update sentiment display
+            const sentiment = data.sentiment.toLowerCase();
+            sentimentDisplay.className = `sentiment-result sentiment-${sentiment}`;
+
+            const icons = { positive: '😊', negative: '😞', neutral: '😐' };
+            sentimentIcon.textContent = icons[sentiment] || '?';
+
+            sentimentText.textContent = `Sentiment: ${data.sentiment}`;
+            sentimentScore.textContent = `Score: ${data.score || 'N/A'} | Confidence: ${data.confidence || 'N/A'}`;
+
+            // Scroll to results
+            resultsContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Handle file upload
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                showAlert('Please select a CSV file.', 'error');
+                return;
+            }
+
+            const csvOptionsGroup = document.getElementById('csvOptionsGroup');
+            csvOptionsGroup.style.display = 'block';
+
+            const uploadArea = document.getElementById('fileUploadArea');
+            uploadArea.innerHTML = `
+                <div class="upload-icon">✅</div>
+                <div class="upload-text">
+                    <strong>${file.name}</strong> selected
+                    <br><small>Ready to process</small>
+                </div>
+            `;
+
+            showAlert('CSV file loaded successfully. Configure options and click Process.', 'success');
+        }
+
+        // Get cleaning options
+        function getCleaningOptions() {
+            return {
+                removeSpecialChars: document.getElementById('removeSpecialChars').checked,
+                removeDuplicates: document.getElementById('removeDuplicates').checked,
+                normalizeText: document.getElementById('normalizeText').checked,
+                removeEmptyRows: document.getElementById('removeEmptyRows').checked
+            };
+        }
+
+        // Process CSV file
+        async function processCsvFile() {
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showAlert('Please select a CSV file first.', 'warning');
+                return;
+            }
+
+            const textColumn = document.getElementById('textColumn').value.trim() || 'text';
+            const processCsvBtn = document.getElementById('processCsvBtn');
+            const processBtnText = document.getElementById('processBtnText');
+            const processSpinner = document.getElementById('processSpinner');
+
+            // Show loading state
+            processCsvBtn.disabled = true;
+            processBtnText.classList.add('hidden');
+            processSpinner.classList.remove('hidden');
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('textColumn', textColumn);
+                formData.append('method', document.getElementById('analysisMethod').value);
+                formData.append('cleaningOptions', JSON.stringify(getCleaningOptions()));
+                formData.append('threshold', document.getElementById('confidenceThreshold').value);
+
+                const response = await fetch('/process_csv', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showAlert(data.error, 'error');
+                    return;
+                }
+
+                currentResults = data.results;
+                displayBatchResults(data);
+                showAlert(`Successfully processed ${data.total_processed} entries!`, 'success');
+
+                // Show download button
+                document.getElementById('downloadBtn').style.display = 'block';
+
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('An error occurred while processing the CSV file.', 'error');
+            } finally {
+                // Reset button state
+                processCsvBtn.disabled = false;
+                processBtnText.classList.remove('hidden');
+                processSpinner.classList.add('hidden');
+            }
+        }
+
+        // Display batch results
+        function displayBatchResults(data) {
+            const resultsContainer = document.getElementById('resultsContainer');
+            const singleResult = document.getElementById('singleResult');
+            const batchResults = document.getElementById('batchResults');
+
+            // Show results container
+            resultsContainer.style.display = 'block';
+            singleResult.style.display = 'none';
+            batchResults.style.display = 'block';
+
+            // Update statistics
+            document.getElementById('totalProcessed').textContent = data.total_processed;
+            document.getElementById('positiveCount').textContent = data.positive_count;
+            document.getElementById('negativeCount').textContent = data.negative_count;
+            document.getElementById('neutralCount').textContent = data.neutral_count;
+
+            // Calculate percentages
+            const total = data.total_processed;
+            const positivePercent = ((data.positive_count / total) * 100).toFixed(1);
+            const negativePercent = ((data.negative_count / total) * 100).toFixed(1);
+            const neutralPercent = ((data.neutral_count / total) * 100).toFixed(1);
+
+            // Update progress bars
+            document.getElementById('positivePercent').textContent = positivePercent + '%';
+            document.getElementById('negativePercent').textContent = negativePercent + '%';
+            document.getElementById('neutralPercent').textContent = neutralPercent + '%';
+
+            document.getElementById('positiveBar').style.width = positivePercent + '%';
+            document.getElementById('negativeBar').style.width = negativePercent + '%';
+            document.getElementById('neutralBar').style.width = neutralPercent + '%';
+
+            // Update data table
+            updateResultsTable(data.results);
+
+            // Create chart
+            createSentimentChart(data);
+
+            // Scroll to results
+            resultsContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Update results table
+        function updateResultsTable(results) {
+            const tableBody = document.getElementById('resultsTableBody');
+            tableBody.innerHTML = '';
+
+            results.slice(0, 100).forEach(result => { // Show first 100 results
+                const row = document.createElement('tr');
+                const truncatedText = result.text.length > 50 ? result.text.substring(0, 50) + '...' : result.text;
+
+                row.innerHTML = `
+                    <td title="${result.text}">${truncatedText}</td>
+                    <td><span class="sentiment-${result.sentiment.toLowerCase()}">${result.sentiment}</span></td>
+                    <td>${result.score || 'N/A'}</td>
+                    <td>${result.confidence || 'N/A'}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            if (results.length > 100) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="4" class="text-center" style="font-style: italic; color: var(--text-secondary);">... and ${results.length - 100} more results</td>`;
+                tableBody.appendChild(row);
+            }
+        }
+
+        // Create sentiment chart
+        function createSentimentChart(data) {
+            const ctx = document.getElementById('sentimentChart').getContext('2d');
+
+            // Destroy existing chart if it exists
+            if (sentimentChart) {
+                sentimentChart.destroy();
+            }
+
+            sentimentChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Positive', 'Negative', 'Neutral'],
+                    datasets: [{
+                        data: [data.positive_count, data.negative_count, data.neutral_count],
+                        backgroundColor: [
+                            '#10b981', // Green for positive
+                            '#ef4444', // Red for negative
+                            '#f59e0b'  // Yellow for neutral
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = data.total_processed;
+                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                    return `${context.label}: ${context.parsed} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Download results
+        function downloadResults() {
+            if (!currentResults || currentResults.length === 0) {
+                showAlert('No results to download.', 'warning');
+                return;
+            }
+
+            // Create CSV content
+            const headers = ['Text', 'Sentiment', 'Score', 'Confidence'];
+            const csvContent = [
+                headers.join(','),
+                ...currentResults.map(result => [
+                    `"${result.text.replace(/"/g, '""')}"`, // Escape quotes in text
+                    result.sentiment,
+                    result.score || '',
+                    result.confidence || ''
+                ].join(','))
+            ].join('\n');
+
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `sentiment_analysis_results_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showAlert('Results downloaded successfully!', 'success');
+        }
+    </script>
+</body>
+</html>
